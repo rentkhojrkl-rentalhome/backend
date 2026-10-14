@@ -55,21 +55,16 @@ app.include_router(auth_router)
 app.include_router(properties_router)
 app.include_router(admin_router)
 
-frontend_urls = [
-    url.strip()
-    for url in os.getenv(
-        "FRONTEND_URL",
-        "https://rentkhojrkl.vercel.app,http://127.0.0.1:5173",
-    ).split(",")
-    if url.strip()
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=frontend_urls,
+    allow_origins=[
+        "https://rentkhojrkl.vercel.app",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
