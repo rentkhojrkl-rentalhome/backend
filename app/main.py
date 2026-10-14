@@ -59,7 +59,7 @@ frontend_urls = [
     url.strip()
     for url in os.getenv(
         "FRONTEND_URL",
-        "http://localhost:5173,http://127.0.0.1:5173",
+        "https://rentkhojrkl.vercel.app,http://127.0.0.1:5173",
     ).split(",")
     if url.strip()
 ]
