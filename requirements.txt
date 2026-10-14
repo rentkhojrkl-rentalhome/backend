@@ -7,3 +7,4 @@ pydantic[email]
 pwdlib[argon2]
 PyJWT
 cloudinary
+python-multipart
