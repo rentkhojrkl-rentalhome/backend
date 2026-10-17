@@ -14,6 +14,7 @@ from app.database import client, db, properties_collection, users_collection
 from app.auth import router as auth_router
 from app.properties import router as properties_router
 from app.admin import router as admin_router
+from app.requirements import router as requirements_router
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -24,6 +25,8 @@ async def lifespan(app: FastAPI):
     try:
         await client.admin.command("ping")
         await users_collection.create_index("email", unique=True)
+        await db["requirements"].create_index([("tenant_id", 1), ("created_at", -1)])
+        await db["requirements"].create_index([("status", 1), ("created_at", -1)])
         logger.info("Connected to MongoDB database: %s", db.name)
     except PyMongoError:
         # Keep the API process running so its health endpoint and error
@@ -54,6 +57,7 @@ async def database_error_handler(_: Request, __: PyMongoError):
 app.include_router(auth_router)
 app.include_router(properties_router)
 app.include_router(admin_router)
+app.include_router(requirements_router)
 
 app.add_middleware(
     CORSMiddleware,
