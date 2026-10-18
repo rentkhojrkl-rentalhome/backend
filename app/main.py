@@ -62,6 +62,8 @@ app.include_router(requirements_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "https://rentkhojrkl.in",
+        "https://www.rentkhojrkl.in",
         "https://rentkhojrkl.vercel.app",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
