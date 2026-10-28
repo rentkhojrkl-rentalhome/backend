@@ -45,3 +45,28 @@ def send_verification_otp(to_email: str, otp: str):
         </div>
         """,
     })
+
+def send_password_reset_email(to_email: str, reset_url: str):
+    return resend.Emails.send({
+        "from": "RentKhojRKL <verify@rentkhojrkl.in>",
+        "to": [to_email],
+        "subject": "Reset your RentKhojRKL password",
+        "html": f"""
+        <div style="font-family:Arial,sans-serif;max-width:500px;margin:auto;">
+            <h2 style="color:#218653;">Reset your password</h2>
+            <p>We received a request to reset your RentKhojRKL password.</p>
+            <p>
+                <a href="{reset_url}"
+                   style="display:inline-block;background:#08764d;color:white;
+                          padding:12px 20px;border-radius:8px;
+                          text-decoration:none;font-weight:bold;">
+                    Reset password
+                </a>
+            </p>
+            <p>This link expires in 30 minutes and can only be used once.</p>
+            <p>If you did not request this, you can safely ignore this email.</p>
+            <p>— RentKhojRKL Team</p>
+        </div>
+        """,
+    })
+
