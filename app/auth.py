@@ -22,6 +22,12 @@ from app.email_service import (
     send_password_reset_email,
 )
 
+from io import BytesIO
+
+import cloudinary
+import cloudinary.uploader
+from fastapi import File, UploadFile
+
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 bearer = HTTPBearer(auto_error=False)
 
@@ -83,6 +89,7 @@ def public_user(user: dict) -> dict:
         "phone": user.get("phone"),
         "role": user["role"],
         "email_verified": user.get("email_verified", False),
+        "profile_photo_url": user.get("profile_photo_url"),
     }
 
 
@@ -570,6 +577,83 @@ async def update_profile(
         "user": public_user(user),
     }
 
+@router.post("/profile/photo")
+async def upload_profile_photo(
+    file: UploadFile = File(...),
+    user: dict = Depends(get_current_user),
+):
+    if not profile_cloudinary_is_configured():
+        raise HTTPException(
+            status_code=503,
+            detail="Profile photo uploads are not configured.",
+        )
+
+    if file.content_type not in PROFILE_PHOTO_TYPES:
+        raise HTTPException(
+            status_code=415,
+            detail="Use a JPG, PNG, or WEBP image.",
+        )
+
+    try:
+        contents = await file.read(MAX_PROFILE_PHOTO_BYTES + 1)
+
+        if not contents:
+            raise HTTPException(
+                status_code=422,
+                detail="The selected image is empty.",
+            )
+
+        if len(contents) > MAX_PROFILE_PHOTO_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail="Profile photos must be 5 MB or smaller.",
+            )
+
+        configure_profile_cloudinary()
+
+        result = cloudinary.uploader.upload(
+            BytesIO(contents),
+            resource_type="image",
+            folder=f"rentkhoj/users/{user['_id']}/profile",
+            allowed_formats=["jpg", "jpeg", "png", "webp"],
+            transformation=[
+                {"width": 600, "height": 600, "crop": "fill", "gravity": "face"}
+            ],
+        )
+
+        photo_url = result.get("secure_url")
+        new_public_id = result.get("public_id")
+
+        if not photo_url or not photo_url.startswith("https://"):
+            raise HTTPException(
+                status_code=502,
+                detail="Cloudinary did not return a secure image URL.",
+            )
+
+        await users_collection.update_one(
+            {"_id": user["_id"]},
+            {
+                "$set": {
+                    "profile_photo_url": photo_url,
+                    "profile_photo_public_id": new_public_id,
+                }
+            },
+        )
+
+        return {
+            "message": "Profile photo updated successfully.",
+            "profile_photo_url": photo_url,
+        }
+
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(
+            status_code=502,
+            detail="Unable to upload the profile photo. Please try again.",
+        )
+    finally:
+        await file.close()
 
 # =========================
 # UPDATE PHONE
@@ -591,3 +675,30 @@ async def update_phone(
         "message": "Phone number updated successfully",
         "user": public_user(user),
     }
+
+MAX_PROFILE_PHOTO_BYTES = 5 * 1024 * 1024  # 5 MB
+PROFILE_PHOTO_TYPES = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+}
+
+
+def profile_cloudinary_is_configured() -> bool:
+    return all(
+        os.getenv(key)
+        for key in (
+            "CLOUDINARY_CLOUD_NAME",
+            "CLOUDINARY_API_KEY",
+            "CLOUDINARY_API_SECRET",
+        )
+    )
+
+
+def configure_profile_cloudinary() -> None:
+    cloudinary.config(
+        cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+        api_key=os.getenv("CLOUDINARY_API_KEY"),
+        api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+        secure=True,
+    )
