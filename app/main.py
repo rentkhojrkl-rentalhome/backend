@@ -138,6 +138,7 @@ async def get_properties():
             detail="Unable to fetch properties",
         )
 
+
 @app.get("/api/sitemap.xml")
 async def get_sitemap():
     base_url = "https://www.rentkhojrkl.in"
@@ -162,9 +163,13 @@ async def get_sitemap():
         SubElement(url, "changefreq").text = frequency
         SubElement(url, "priority").text = priority
 
-    # Fetch all publicly available properties
+    # Fetch all public properties
     cursor = properties_collection.find(
-        {"status": {"$in": ["active", "approved"]}},
+        {
+            "status": {
+                "$in": ["active", "approved"]
+            }
+        },
         {
             "_id": 1,
             "updated_at": 1,
@@ -172,27 +177,33 @@ async def get_sitemap():
         }
     )
 
-    async for property in cursor:
-        property_id = str(property["_id"])
+    async for item in cursor:
+        property_id = str(item["_id"])
 
         url = SubElement(urlset, "url")
+
         SubElement(url, "loc").text = (
             f"{base_url}/properties/{property_id}"
         )
 
+        # Add last modified date
         last_modified = (
-            property.get("updated_at")
-            or property.get("created_at")
+            item.get("updated_at")
+            or item.get("created_at")
         )
 
-        if hasattr(last_modified, "date"):
+        if last_modified:
+            if hasattr(last_modified, "date"):
+                last_modified = last_modified.date()
+
             SubElement(url, "lastmod").text = (
-                last_modified.date().isoformat()
+                last_modified.isoformat()
             )
 
         SubElement(url, "changefreq").text = "weekly"
         SubElement(url, "priority").text = "0.8"
 
+    # Convert XML to bytes
     xml_content = tostring(
         urlset,
         encoding="utf-8",
