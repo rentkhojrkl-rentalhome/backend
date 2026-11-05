@@ -8,13 +8,14 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pymongo.errors import PyMongoError
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
 
 from app.database import client, db, properties_collection, users_collection
 from app.auth import router as auth_router
 from app.properties import router as properties_router
 from app.admin import router as admin_router
 from app.requirements import router as requirements_router
+from xml.etree.ElementTree import Element, SubElement, tostring
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -136,3 +137,69 @@ async def get_properties():
             status_code=503,
             detail="Unable to fetch properties",
         )
+
+@app.get("/api/sitemap.xml")
+async def get_sitemap():
+    base_url = "https://www.rentkhojrkl.in"
+
+    # Create XML sitemap
+    urlset = Element(
+        "urlset",
+        xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+    )
+
+    # Fixed public pages
+    static_pages = [
+        ("/", "weekly", "1.0"),
+        ("/search", "daily", "0.9"),
+        ("/about", "monthly", "0.6"),
+        ("/contact", "monthly", "0.5"),
+    ]
+
+    for path, frequency, priority in static_pages:
+        url = SubElement(urlset, "url")
+        SubElement(url, "loc").text = base_url + path
+        SubElement(url, "changefreq").text = frequency
+        SubElement(url, "priority").text = priority
+
+    # Fetch all publicly available properties
+    cursor = properties_collection.find(
+        {"status": {"$in": ["active", "approved"]}},
+        {
+            "_id": 1,
+            "updated_at": 1,
+            "created_at": 1,
+        }
+    )
+
+    async for property in cursor:
+        property_id = str(property["_id"])
+
+        url = SubElement(urlset, "url")
+        SubElement(url, "loc").text = (
+            f"{base_url}/properties/{property_id}"
+        )
+
+        last_modified = (
+            property.get("updated_at")
+            or property.get("created_at")
+        )
+
+        if hasattr(last_modified, "date"):
+            SubElement(url, "lastmod").text = (
+                last_modified.date().isoformat()
+            )
+
+        SubElement(url, "changefreq").text = "weekly"
+        SubElement(url, "priority").text = "0.8"
+
+    xml_content = tostring(
+        urlset,
+        encoding="utf-8",
+        xml_declaration=True
+    )
+
+    return Response(
+        content=xml_content,
+        media_type="application/xml"
+    )
