@@ -90,6 +90,12 @@ def public_user(user: dict) -> dict:
         "role": user["role"],
         "email_verified": user.get("email_verified", False),
         "profile_photo_url": user.get("profile_photo_url"),
+         "is_active": user.get("is_active", True),
+        "permissions": (
+            user.get("permissions", [])
+            if user.get("role") == "admin"
+            else []
+        ),
     }
 
 
@@ -134,12 +140,14 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
         )
+    
 
     if not user.get("email_verified", False):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Please verify your email",
         )
+
 
     return user
 
