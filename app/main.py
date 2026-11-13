@@ -1,4 +1,3 @@
-
 from contextlib import asynccontextmanager
 import logging
 import os
@@ -16,6 +15,7 @@ from app.properties import router as properties_router
 from app.admin import router as admin_router
 from app.requirements import router as requirements_router
 from xml.etree.ElementTree import Element, SubElement, tostring
+from app.super_admin import router as super_admin_router
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -59,6 +59,7 @@ app.include_router(auth_router)
 app.include_router(properties_router)
 app.include_router(admin_router)
 app.include_router(requirements_router)
+app.include_router(super_admin_router)
 
 app.add_middleware(
     CORSMiddleware,
