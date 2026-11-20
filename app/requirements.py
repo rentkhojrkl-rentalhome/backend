@@ -131,6 +131,47 @@ async def update_requirement(requirement_id: str, data: RequirementUpdate, user:
     item = await requirements_collection.find_one({"_id": ObjectId(requirement_id)})
     return serialize(item)
 
+@router.delete("/{requirement_id}")
+async def delete_requirement(
+    requirement_id: str,
+    user: dict = Depends(get_current_user)
+):
+    tenant_only(user)
+
+    if not ObjectId.is_valid(requirement_id):
+        raise HTTPException(
+            status_code=404,
+            detail="Requirement not found"
+        )
+
+    now = datetime.now(timezone.utc)
+
+    result = await requirements_collection.update_one(
+        {
+            "_id": ObjectId(requirement_id),
+            "tenant_id": user["_id"],
+            "is_deleted": {"$ne": True}
+        },
+        {
+            "$set": {
+                "is_deleted": True,
+                "deleted_at": now,
+                "updated_at": now
+            }
+        }
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(
+            status_code=404,
+            detail="Requirement not found"
+        )
+
+    return {
+        "success": True,
+        "message": "Requirement deleted successfully"
+    }
+
 
 @router.get("/{requirement_id}/matches")
 async def matching_properties(requirement_id: str, user: dict = Depends(get_current_user)):
