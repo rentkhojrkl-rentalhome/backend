@@ -9,3 +9,4 @@ PyJWT
 cloudinary
 python-multipart
 resend
+openpyxl
