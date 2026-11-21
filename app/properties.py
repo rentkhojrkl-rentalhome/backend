@@ -140,8 +140,10 @@ async def create_property(
     property_data.update({
         "owner_id": owner["_id"],
         "status": "pending",
+        "rental_status": "available",
         "created_at": now,
         "updated_at": now,
+        "owner_verified": (owner.get("owner_verification_status") == "verified"),
     })
 
     try:
@@ -171,6 +173,8 @@ async def get_property(property_id: str):
         item = await properties_collection.find_one({
             "_id": ObjectId(property_id),
             "status": {"$in": ["active", "approved"]},
+             "rental_status": {"$ne": "rented"},
+             "deleted_at": None,
         })
     except PyMongoError:
         raise HTTPException(status_code=503, detail="Unable to fetch this property right now")
@@ -182,9 +186,11 @@ async def get_property(property_id: str):
     owner_id = item.get("owner_id")
     owner = None
     if isinstance(owner_id, ObjectId):
-        owner = await users_collection.find_one({"_id": owner_id}, {"name": 1, "phone": 1})
+        owner = await users_collection.find_one({"_id": owner_id}, {"name": 1, "phone": 1, "owner_verification_status": 1})
     elif isinstance(owner_id, str) and ObjectId.is_valid(owner_id):
         owner = await users_collection.find_one({"_id": ObjectId(owner_id)}, {"name": 1, "phone": 1})
     result["owner_name"] = owner.get("name") if owner else None
     result["owner_phone"] = owner.get("phone") if owner else None
+    result["owner_verified"] = (owner.get("owner_verification_status") == "verified" if owner else False)
     return result
+
