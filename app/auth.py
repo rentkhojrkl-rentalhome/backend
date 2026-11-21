@@ -96,6 +96,11 @@ def public_user(user: dict) -> dict:
             if user.get("role") == "admin"
             else []
         ),
+        "owner_verification_status": (
+         user.get("owner_verification_status", "unverified")
+              if user.get("role") == "owner"
+              else None
+              ),
     }
 
 
@@ -140,7 +145,14 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
         )
-    
+
+    # Tokens are stateless, so this database check is the enforcement point
+    # for a Super Admin suspension or soft deletion.
+    if user.get("is_active") is False or user.get("deleted_at"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This account is inactive",
+        )
 
     if not user.get("email_verified", False):
         raise HTTPException(
@@ -384,6 +396,12 @@ async def login(data: LoginRequest):
         raise HTTPException(
             status_code=403,
             detail="Please verify your email before logging in.",
+        )
+
+    if user.get("is_active") is False or user.get("deleted_at"):
+        raise HTTPException(
+            status_code=403,
+            detail="This account is inactive",
         )
 
     token = create_access_token(str(user["_id"]), user["role"])
@@ -710,3 +728,4 @@ def configure_profile_cloudinary() -> None:
         api_secret=os.getenv("CLOUDINARY_API_SECRET"),
         secure=True,
     )
+
