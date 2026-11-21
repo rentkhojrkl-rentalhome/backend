@@ -11,6 +11,11 @@ ALL_PERMISSIONS = {
     "reports.view",
     "activity.view",
     "revenue.view",
+    "owners.verify",
+    "rentals.view",
+    "rentals.manage",
+    "database.export",
+    "database.backup",
 }
 
 
